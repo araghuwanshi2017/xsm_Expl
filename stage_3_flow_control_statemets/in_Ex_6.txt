@@ -1,0 +1,1 @@
+begin read(a); read(b); s = 0; do { a = a + 1; s = s + a; } while(a <= b); write(s);end;

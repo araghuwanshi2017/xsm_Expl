@@ -1,0 +1,1 @@
+begin read(a); read(b); while(a < b) do read(a); if(a == 7) then b = 100; break; endif; s = s + a; endwhile; write(b); write(s); end;
