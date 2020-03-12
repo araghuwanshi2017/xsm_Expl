@@ -1,1 +1,0 @@
-begin read(a); while(a != 0) do b = b + a; write(b); read(a); endwhile; write(b); end;

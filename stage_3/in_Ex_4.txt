@@ -1,1 +1,0 @@
-begin read(a); read(b); c = 7; while(a < b) do a = a + 1; while(c < b) do c = c + 1; if((a + c) >= b) then break; endif; endwhile; endwhile; write(a); write(b); write(c); end; 

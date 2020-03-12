@@ -6,6 +6,7 @@
 #define EQ 20
 #define IF 21
 #define MUL 9
+#define MOD 31
 #define PLUS 7
 #define DIV 10
 #define INPUT 4
@@ -26,12 +27,14 @@
 #define STATEMENT 1
 #define CONSTANT 11
 #define CONTINUE 28
+#define DO_WHILE 29
 #define RESERVED 30
 #define EXPRESSION 2
 #define ASSIGNMENT 6
 #define BREAKPOINT 27
 #define REPEAT_UNTIL 28
-#define DO_WHILE 29
+#define ARRAY_VARIABLE 31
+//32
 
 
 #define f(a, b) for(int i = a;i < b;i++)
@@ -76,10 +79,16 @@ struct Gsymbol* GSTroot;
 int allocate(int);
 // for Allocating labels in code_Generation
 int getLabel();	
+//To get the address of an array or a variable
+int get_Address(FILE*, struct Astnode *);
 //If a variable is identified make a node of it
 struct Astnode* makeVariableLeafNode(int, int, char, char *);
 // If a number is identified make a node of it
 struct Astnode* makeConstantLeafNode(int, int, int, char *);
+// If any string is identified make a node of it
+struct Astnode *makeConstantStringLeafNode(int,int,char*);
+//f any array elemen tis identified make a node of it
+struct Astnode *makeArrayVariableNode(int, int, struct Astnode*, struct Astnode*, char *);
 // to create a node of break , continue  and breakpoint  
 struct Astnode* makeBCBPNode(int, int, char *);
 // Statements nodes like write,  read, if-else-if statements , while, do_while, repeat_until;   

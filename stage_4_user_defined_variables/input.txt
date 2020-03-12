@@ -1,2 +1,31 @@
-decl int n,f2,f0,f1,i; enddecl begin read(n); if(n>=2) then f0=0; f1=1; n=n-1; while(n!=0) do f2=f1+f0; f0=f1; f1=f2; n=n-1; endwhile; write(f1); else if(n==1) then write(1); else write(0); endif; endif; end;
+decl
+   int n,arr[50],i,j,dup;
+enddecl
+
+begin
+  read(n);
+  i=0;
+  while(i<n) do
+    read(arr[i]);
+    i = i+1;
+  endwhile;
+  i=0;
+  while(i<n) do
+    j=i;
+    while(j<n) do
+      if(arr[i] > arr[j]) then
+        dup = arr[i];
+        arr[i] = arr[j];
+        arr[j] = dup;
+      endif;
+      j = j + 1;
+    endwhile;
+    i = i+1;
+  endwhile;
+  i=0;
+  while(i<n) do
+    write(arr[i]);
+    i = i+1;
+  endwhile;
+end;
 

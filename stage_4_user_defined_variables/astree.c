@@ -11,17 +11,17 @@ void print(struct Astnode * root)
     if(root)
     {
         print(root->left);
-        if(root->left && root->left->nodetype == VARIABLE){
-            printf("%s ",root->left->s);
-            print_GST(root->left->GST_entry);
-        }
-
+        // if(root->left && root->left->nodetype == VARIABLE){
+        //     printf("%s ",root->left->s);
+        //     print_GST(root->left->GST_entry);
+        // }
+        printf("%s ",root->s);
         print(root->right);
-        if(root->right && root->right->nodetype == VARIABLE)
-        {
-            printf("%s ",root->right->s);
-            print_GST(root->right->GST_entry);
-        }
+        // if(root->right && root->right->nodetype == VARIABLE)
+        // {
+        //     printf("%s ",root->right->s);
+        //     print_GST(root->right->GST_entry);
+        // }
     }
     return ;
 }
@@ -59,6 +59,21 @@ struct Astnode* makeConstantLeafNode(int nodetype, int type, int val, char *s){
     return temp;
 }
 
+struct Astnode* makeConstantStringLeafNode(int nodetype, int type, char *s){
+    struct Astnode *temp;
+    temp = (struct Astnode*)malloc(sizeof(struct Astnode));
+    temp->s = (char *)malloc(strlen(s)*sizeof(char));
+    temp->s = strdup(s);
+    temp->op = malloc(sizeof(char));
+    temp->type = type;
+    temp->nodetype = nodetype;
+    temp->left = NULL;
+    temp->right = NULL;
+    temp->op = NULL;
+    temp->varname =  NULL;
+    return temp;
+}
+
 struct Astnode* makeStatementNode(int nodetype, int type,struct Astnode *l,struct Astnode *r, char *s){
     struct Astnode *temp;
     temp = (struct Astnode*)malloc(sizeof(struct Astnode));
@@ -81,6 +96,20 @@ struct Astnode* makeExpressionNode(int nodetype, int type,char op, struct Astnod
     temp->s = strdup(s);
     temp->op = malloc(sizeof(char));
     *(temp->op) = op;
+    temp->type = type;
+    temp->nodetype = nodetype;
+    temp->left = l;
+    temp->right = r;
+    temp->varname =  NULL;
+    return temp;
+}
+
+struct Astnode* makeArrayVariableNode(int nodetype, int type, struct Astnode * l, struct Astnode *r, char *s)
+{
+    struct Astnode *temp;
+    temp = (struct Astnode*)malloc(sizeof(struct Astnode));
+    temp->s = (char *)malloc(strlen(s)*sizeof(char));
+    temp->s = strdup(s);
     temp->type = type;
     temp->nodetype = nodetype;
     temp->left = l;
@@ -346,13 +375,23 @@ int getLabel()
     return a;
 }
 
-int get_Address(struct Astnode * t)
+int get_Address(FILE *ft,struct Astnode * t)
 {
+    reg_idx tmp;
     struct Gsymbol * curr = t->GST_entry;
     if(curr == NULL)
     {
-        printf("NULL");
+        printf("GST_Entry NULL");
         exit(1);
+    }
+    if(t->nodetype == ARRAY_VARIABLE)
+    {
+        tmp = getReg();
+        fprintf(ft,"MOV R%d, %d\n",tmp,curr->binding);
+        reg_idx tmp1 = expression_codeGen(t->right,ft);
+        fprintf(ft,"ADD R%d, R%d\n",tmp,tmp1);
+        tmp1 = freeReg();
+        return tmp;
     }
     return curr->binding;
 }
@@ -361,6 +400,8 @@ int get_Address(struct Astnode * t)
 
 reg_idx expression_codeGen(struct Astnode*t,FILE *ft)
 {
+    // printf("%d %d %s",t->nodetype, t->type, t->varname);
+    // exit(1);
     reg_idx idx;
     if(t->nodetype == CONSTANT && t->type == INTEGER && t->op == NULL)
     {
@@ -374,12 +415,22 @@ reg_idx expression_codeGen(struct Astnode*t,FILE *ft)
 
     if(t->nodetype == VARIABLE && t->type == INTEGER && t->varname != NULL)
     {
-        int var_Addr = get_Address(t);
+        int var_Addr = get_Address(ft,t);
         idx = getReg();
         if(idx == -1)
             exit(1);
 
         fprintf(ft,"MOV R%d, [%d]\n",idx, var_Addr);
+        return idx;
+    }
+    if(t->nodetype == ARRAY_VARIABLE && t->type == INTEGER)
+    {
+        int var_Addr = get_Address(ft,t);
+        idx = getReg();
+        if(idx == -1)
+            exit(1);
+
+        fprintf(ft,"MOV R%d, [R%d]\n",idx,var_Addr);
         return idx;
     }
     if(t->nodetype == CONSTANT && t->type == STRING && t->op == NULL)
@@ -393,7 +444,7 @@ reg_idx expression_codeGen(struct Astnode*t,FILE *ft)
     }
     if(t->nodetype == VARIABLE && t->type == STRING && t->varname != NULL)
     {
-        int var_Addr = get_Address(t);
+        int var_Addr = get_Address(ft,t);
         idx = getReg();
         if(idx == -1)
             exit(1);
@@ -441,6 +492,14 @@ reg_idx expression_codeGen(struct Astnode*t,FILE *ft)
                         exit(1);
                     return left;
                     break;
+            case '%':
+                    fprintf(ft,"MOD R%d, R%d\n",left, right);
+                    idx = freeReg();
+
+                    if(idx == -1)
+                        exit(1);
+                    return left;
+                    break;
         }
 
     }
@@ -452,10 +511,19 @@ int assignment_codeGen(struct Astnode*t, FILE *ft)
     reg_idx idx;
     if(t && t->left && t->right)
     {
+        int var_Addr;
         idx = expression_codeGen(t->right, ft);
-        int var_Addr = get_Address(t->left);
-
-        fprintf(ft,"MOV [%d], R%d\n",var_Addr,idx);
+        if(t->left->nodetype == VARIABLE)
+        {
+            var_Addr = get_Address(ft,t->left);
+            fprintf(ft,"MOV [%d], R%d\n",var_Addr,idx);
+        }
+        else if(t->left->nodetype == ARRAY_VARIABLE)
+        {
+            var_Addr = get_Address(ft,t->left);
+            fprintf(ft,"MOV [R%d], R%d\n",var_Addr,idx);
+            var_Addr = freeReg();
+        }
         idx = freeReg();
 
         if(idx == -1)
@@ -505,14 +573,24 @@ int read_codeGen(struct Astnode*t, FILE *ft)
 {
     if(t && t->left)
     {
+        int var_Addr;
         reg_idx idx = getReg();
-        int var_Addr = get_Address(t->left);
+        if(t->left->nodetype == VARIABLE)
+        {
+            var_Addr = get_Address(ft,t->left);
+            fprintf(ft, "MOV R%d,%d\n", idx, var_Addr);
+        }
+        else if(t->left->nodetype == ARRAY_VARIABLE)
+        {
+            var_Addr = get_Address(ft,t->left);
+            fprintf(ft, "MOV R%d,R%d\n", idx ,var_Addr);
+            var_Addr = freeReg();   
+        }
         if (idx == -1)
             exit(1);
         reg_idx temp = getReg();
         if (temp == -1)
             exit(1);
-        fprintf(ft, "MOV R%d,%d\n", idx, var_Addr);
         fprintf(ft, "MOV R%d,\"Read\"\n", temp);
         fprintf(ft, "PUSH R%d\n", temp);
         fprintf(ft, "MOV R%d,-1\n", temp);
@@ -729,10 +807,11 @@ void codeGen_util(struct Astnode*t, FILE *ft, int break_label, int continue_labe
 }
 void codeGen(struct Astnode*t, FILE *ft)
 {
+    printf("%d\n",ADDR-1);
     init_reg(); //Initialization
     fprintf(ft, "0\n2056\n0\n0\n0\n0\n0\n0\n");
     fprintf(ft, "BRKP\n");
-    fprintf(ft, "MOV SP, 4095\n");
+    fprintf(ft, "MOV SP, %d\n",ADDR - 1);
     codeGen_util(t, ft,-1,-1);
 
     reg_idx tmp = getReg();

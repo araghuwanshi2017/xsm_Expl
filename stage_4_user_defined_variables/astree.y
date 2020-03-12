@@ -5,7 +5,7 @@
 	#include "astree.h"
 	#include "astree.c"
 	int yylex(void);
-	FILE *ft;
+	FILE *ft, *yyin;
 	struct Gsymbol *tmp;
 %}
 
@@ -18,9 +18,9 @@
 %type <node> _BREAK _CONTINUE _BREAKPOINT
 %type <node> DeclList Decl Declarations VarList
 %type <node> program
-%type <node> Slist Stmt Inputstmt Boolstmt Outputstmt Assgstmt Ifstmt Whilestmt RepeatUntil Dowhile
+%type <node> Slist Stmt Inputstmt Boolstmt Outputstmt Assgstmt Ifstmt Whilestmt RepeatUntil Dowhile 
 %type <node> _NUM
-%type <node> expr  _ID id _END 
+%type <node> expr expr_str _ID id _END _STRING
 //declaration
 %token _DECL _ENDDECL
 //operator
@@ -44,7 +44,7 @@
 //break, continue, breakpoint
 %token _BREAK _CONTINUE _BREAKPOINT
 %left _PLUS _MINUS 
-%left _MUL _DIV
+%left _MUL _DIV _MOD
 
 %start program
 
@@ -55,7 +55,6 @@ Declarations : _DECL DeclList _ENDDECL {
 
 	print_GST(GSTroot);
 	$$ = $2;
-	//print_GST(GSTroot);
 	printf("Declarations Done\n");
 } 
 | _DECL _ENDDECL {
@@ -76,13 +75,19 @@ Decl : _INT VarList ';' {
 	 $$ = AST_typechange(GSTroot, $2, STRING);
 }
 ;
-
 VarList : VarList ',' _ID {
 	tmp = init_node(-1, VARIABLE, 1, $3->s);
 	GSTroot = installID(GSTroot, $3->s, -1, VARIABLE, 1,tmp);
 	$3->GST_entry = tmp;
 	$3->GST_entry->next = NULL;
-	$$ = makeStatementNode(STATEMENT, STATEMENT, $1, $3, "STATEMENT");
+	$$ = makeStatementNode(STATEMENT, STATEMENT, $1, $3, "ST");
+}
+| VarList ',' _ID'['_NUM']' {
+	tmp = init_node(-1, ARRAY_VARIABLE, $5->val, $3->s);
+	GSTroot = installID(GSTroot, $3->s, -1, ARRAY_VARIABLE, $5->val,tmp);
+	$3->GST_entry = tmp;
+	$3->GST_entry->next = NULL;
+	$$ = makeStatementNode(STATEMENT, STATEMENT, $1, $3, "ST");	
 }
 | _ID {
 	tmp = init_node(-1, VARIABLE, 1, $1->s);
@@ -90,6 +95,14 @@ VarList : VarList ',' _ID {
 	$1->GST_entry->next = NULL;
 	GSTroot = installID(GSTroot, $1->s, -1, VARIABLE, 1,tmp);
 	$$ = $1;
+}
+| _ID'['_NUM']'{
+
+	tmp = init_node(-1, ARRAY_VARIABLE, $3->val, $1->s);
+	$$->GST_entry = tmp;
+	$$->GST_entry->next = NULL;
+	GSTroot = installID(GSTroot, $1->s, -1, ARRAY_VARIABLE, $3->val,tmp);
+	$$ = makeArrayVariableNode(ARRAY_VARIABLE,ARRAY_VARIABLE,$1,$3,$1->s);
 }
 ;
 // *****
@@ -99,6 +112,7 @@ VarList : VarList ',' _ID {
 program: Declarations _BEGIN Slist _END ';'{
 
 	//$$ = $3;
+	print($3);
 	printf("Parsing Done\n");
 	codeGen($3,ft);
 	exit(1);
@@ -153,7 +167,7 @@ Stmt: Inputstmt {
 	$$ = $1;
 }
 ;
-Inputstmt: _READ '(' _ID ')'';'{
+Inputstmt: _READ '(' id ')'';'{
 	tmp = Lookup(GSTroot, $3->s);
 
 
@@ -169,15 +183,24 @@ Inputstmt: _READ '(' _ID ')'';'{
 	$$ = makeStatementNode(STATEMENT,READ,$3,(Astnode *)NULL,"Read");
 }
 ;
-Outputstmt: _WRITE'('expr')'';'{
+Outputstmt: _WRITE'('expr_str')'';'{
 	$$ = makeStatementNode(STATEMENT,WRITE,$3,(Astnode *)NULL, "Write");
 }
 ;
-Assgstmt: id '=' expr ';'{
+Assgstmt: id '=' expr_str ';'{
 	//printf("Assmt\n");
+	if($1->type != $3->type){
+		printf("Invalid operatinon b/w operands\n");
+		exit(1);
+	}
 	$$ = makeExpressionNode(EXPRESSION,ASSIGNMENT,'=',$1,$3,"=");
 }
 ;
+
+expr_str : expr {$$ = $1;}
+| _STRING {$$ = $1;}
+;
+
 
 Ifstmt: _IF'('Boolstmt')' _THEN Slist _ELSE Slist _ENDIF ';'{
 		if($3->nodetype == BOOLEAN)
@@ -208,18 +231,17 @@ Ifstmt: _IF'('Boolstmt')' _THEN Slist _ELSE Slist _ENDIF ';'{
 ;
 Boolstmt:  expr _GT expr {
 
-		if($1->type != $3->type)
-		{
-			printf("Error Invalid operator b/w operands\n");
-			exit(1);
-		}
-
-		$$ = makeStatementNode(BOOLEAN,GT,$1,$3,"GT");
+	if($1->type != $3->type)
+	{
+		printf("Error Invalid operator b/w operands\n");
+		exit(1);
+	}
+	$$ = makeStatementNode(BOOLEAN,GT,$1,$3,"GT");
 	}
 	| expr _LT expr {
 		if($1->type != $3->type)
 		{
-			printf("Error Invalid operator b/w operands\n");
+			printf("aaError Invalid operator b/w operands\n");
 			exit(1);
 		}
 		$$ = makeStatementNode(BOOLEAN,LT,$1,$3,"LT");
@@ -227,7 +249,7 @@ Boolstmt:  expr _GT expr {
 	| expr _GE expr {
 		if($1->type != $3->type)
 		{
-			printf("Error Invalid operator b/w operands\n");
+			printf("bbError Invalid operator b/w operands\n");
 			exit(1);
 		}
 		$$ = makeStatementNode(BOOLEAN,GE,$1,$3,"GE");
@@ -235,7 +257,7 @@ Boolstmt:  expr _GT expr {
 	| expr _LE expr {
 		if($1->type != $3->type)
 		{
-			printf("Error Invalid operator b/w operands\n");
+			printf("ccError Invalid operator b/w operands\n");
 			exit(1);
 		}
 		$$ = makeStatementNode(BOOLEAN,LE,$1,$3,"LE");
@@ -243,7 +265,7 @@ Boolstmt:  expr _GT expr {
 	| expr _NE expr {
 		if($1->type != $3->type)
 		{
-			printf("Error Invalid operator b/w operands\n");
+			printf("ddError Invalid operator b/w operands\n");
 			exit(1);
 		}
 		$$ = makeStatementNode(BOOLEAN,NE,$1,$3,"NE");
@@ -251,7 +273,7 @@ Boolstmt:  expr _GT expr {
 	| expr _EQ expr {
 		if($1->type != $3->type)
 		{
-			printf("Error Invalid operator b/w operands\n");
+			printf("eeError Invalid operator b/w operands\n");
 			exit(1);
 		}
 		$$ = makeStatementNode(BOOLEAN,EQ,$1,$3,"EQ");
@@ -310,6 +332,7 @@ expr : expr _PLUS expr		{
 		exit(1);
 	}
 	$$ = makeExpressionNode(EXPRESSION,PLUS,'+',$1,$3,"+"); 
+	$$->type = $1->type;
 }
 | expr _MINUS expr 	{
 	if($1->type != $3->type)
@@ -318,6 +341,7 @@ expr : expr _PLUS expr		{
 		exit(1);
 	}
 	$$ = makeExpressionNode(EXPRESSION,MINUS,'-',$1,$3,"-"); 
+	$$->type = $1->type;
 }
 | expr _MUL expr{
 	if($1->type != $3->type)
@@ -326,6 +350,7 @@ expr : expr _PLUS expr		{
 		exit(1);
 	}
 	$$ = makeExpressionNode(EXPRESSION,MUL,'*',$1,$3,"*"); 
+	$$->type = $1->type;
 }
 | expr _DIV expr{
 	if($1->type != $3->type)
@@ -334,41 +359,54 @@ expr : expr _PLUS expr		{
 		exit(1);
 	}
 	$$ = makeExpressionNode(EXPRESSION,DIV,'/',$1,$3,"/"); 
+	$$->type = $1->type;
+}
+| expr _MOD expr{
+	if($1->type != $3->type)
+	{
+		printf("Error Invalid operator b/w operands\n");
+		exit(1);
+	}
+	$$ = makeExpressionNode(EXPRESSION,MOD,'%',$1,$3,"%"); 
+	$$->type = $1->type;
 }
 | '(' expr ')'		{$$ = $2;}
 | _NUM			{$$ = $1;}
-| _ID          {
-
-	$$ = $1;
-	tmp = Lookup(GSTroot, $1->s);
-
-
-	if(tmp == NULL)
-	{
-		printf("error: %s",$1->s);
-		exit(1);
-	}
-
-	$1->GST_entry = tmp;
-	$1->type = tmp->type;
-	$$ = $1;
-}
+| id   {$$ = $1;}
 ;
 
 
 id:  _ID {
+
 	tmp = Lookup(GSTroot, $1->s);
-
-
 	if(tmp == NULL)
 	{
-		printf("error: %s",$1->s);
+		printf("a1error: %s",$1->s);
 		exit(1);
 	}
 
-	$1->GST_entry = tmp;
-	$1->type = tmp->type;
 	$$ = $1;
+	$$->GST_entry = tmp;
+	$$->type = tmp->type;
+}
+| _ID'['expr']' {
+	tmp = Lookup(GSTroot, $1->s);
+	if(tmp == NULL)
+	{
+		printf("a2error: %s",$1->s);
+		exit(1);
+	}
+
+	if($3->type != INTEGER)
+	{
+		printf("error : size of an array must be an integer\n");
+		exit(1);
+	}
+	$1->GST_entry = tmp;
+	$$->type = tmp->type;
+	$$ = makeArrayVariableNode(ARRAY_VARIABLE, $$->type, $1, $3,$1->s);
+	$$->GST_entry = $1->GST_entry;
+	
 }
 ;
 
@@ -389,15 +427,14 @@ int main(int argc, char *argv[]) {
 	if(argc > 1)
 	{
 		printf("Generating File %s\n",argv[1]);
-		ft = fopen(argv[1],"w");
-		yyparse();
-	}
-	else
-	{
+		
+		ft = fopen(argv[1],"r");
+		if(ft) yyin = ft;
+	
+	}	
 		printf("Xsm file as code.xsm\n");
 		ft = fopen("code.xsm","w");
 		yyparse();
-	}
 	
 	return 0;
 }

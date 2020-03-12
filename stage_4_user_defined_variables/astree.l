@@ -38,6 +38,7 @@ breakpoint {yylval.node = makeBCBPNode(BREAKPOINT,BREAKPOINT,yytext); return _BR
 	
 	yylval.node = makeVariableLeafNode(VARIABLE,INTEGER,*yytext,yytext); return _ID;
 }
+([\"]({alpha}|{digit})*[\"]) {yylval.node = makeConstantStringLeafNode(CONSTANT,STRING,yytext);return _STRING;}
 
 {digit}* {number = atoi(yytext); yylval.node = makeConstantLeafNode(CONSTANT,INTEGER,number,yytext); return _NUM;}
 ">"		 {return _GT;}
@@ -46,6 +47,7 @@ breakpoint {yylval.node = makeBCBPNode(BREAKPOINT,BREAKPOINT,yytext); return _BR
 ([>][=]) {return _GE;}
 ([!][=]) {return _NE;}
 ([=][=]) {return _EQ;}
+"%"		 {return _MOD;}
 "*"		 {return _MUL;}
 "/"		 {return _DIV;}
 "+"	   	 {return _PLUS;}
@@ -57,6 +59,8 @@ breakpoint {yylval.node = makeBCBPNode(BREAKPOINT,BREAKPOINT,yytext); return _BR
 "{"      {return *yytext;}
 "}"      {return *yytext;}
 ","      {return *yytext;}
+"["		 {return *yytext;}
+"]"		 {return *yytext;}
 [ \t]	 {}
 .	{yyerror("unknown character\n");exit(1);}
 
