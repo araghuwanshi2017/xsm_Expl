@@ -6,10 +6,10 @@
 	#include "astree.c"
 	int yylex(void);
 	FILE *ft, *yyin;
-	struct Astnode *type_node *tmp_ast;;
+	struct Astnode *type_node , *tmp_ast;;
 	struct Gsymbol *tmp;
 	struct Pmtr *paramList , *Pnode;
-	struct Lsymbol *LSTroot, *Lnode;
+	struct Lsymbol *LSTnode, *Lnode;
 %}
 
 
@@ -25,12 +25,12 @@
 %type <param_node> ParamList Param
 %type <node>  Type _INT _STR
 %type <node> GDeclBlock GdeclList Gdecl GidList Gid //type of nodes for declaration of global variable and functions  
-%type <node>  Body                   //type of nodes for declaration of locally declared variable and function's body 
-// FdefBlock Fdef
+%type <node>  Body MainBlock                //type of nodes for declaration of locally declared variable and function's body 
+%type <node> FdefBlock Fdef
 %type <node> _BREAK _CONTINUE _BREAKPOINT
 %type <node> program
-%type <node> Slist Stmt Inputstmt Boolstmt Outputstmt Assgstmt Ifstmt Whilestmt RepeatUntil Dowhile 
-%type <node> _NUM
+%type <node> Slist Stmt Retstmt Inputstmt Boolstmt Outputstmt Assgstmt Ifstmt Whilestmt RepeatUntil Dowhile 
+%type <node> _NUM Ret_Type
 %type <node> expr expr_str _ID id _END _STRING 
 //Function Declaration
 %token _MAIN
@@ -47,7 +47,7 @@
 //read and write
 %token _READ _WRITE
 //begin and end of function
-%token _BEGIN _END _MAIN
+%token _BEGIN _END _RETURN
 //if-else
 %token _IF _THEN _ELSE _ENDIF
 //while and do-while
@@ -64,32 +64,56 @@
 %%
 // ****************************** Globally Declarations Block ****************************** 
 
-program : GDeclBlock  Body {
-	$$ = $1;
-	print_GST(GSTroot);
-	print($1);
-	exit(1);
-
+program : GDeclBlock FdefBlock MainBlock {
+		print_GST(GSTroot);
+		printf("Parsing Done\n");
+		codeGen($3, ft);
+		exit(1);  
+}         
+|	    GDeclBlock MainBlock {
+		codeGen($2, ft);
+		printf("Parsing Done\n");
+		exit(1);
 }
-// |	      GDeclBlock MainBlock {
-
-// }
-// |		   MainBlock {
-
-// }
+|		MainBlock {
+		printf("Parsing Done\n");
+		$$ = $1;
+		exit(1);
+}
 ;
 
 
  MainBlock : _INT _MAIN'('')' '{'LdeclBlock Body '}'{
 
- 		
+ 		print($7);
+ 		Lnode = init_lstnode("main");
+ 		LSTnode = install_lstnode(LSTnode, Lnode);
 
+ 		tmp = init_node(-1, FUNCTION, 0, "main");
+ 		GSTroot = installID(GSTroot, 0, tmp);
+
+ 		tmp = Lookup(GSTroot, "main");
+ 		tmp->LST_entry = LSTnode;
+ 		tmp_ast = $7->right;
+
+ 		if(!tmp)
+ 		{
+ 			printf("undefined  reference to 'main'\n");
+ 			exit(1);
+ 		}
+ 		if(tmp_ast->type != INTEGER)
+ 		{
+ 			printf("error: 'main' function must have a return type of integer :\n");
+ 			exit(1);
+ 		}
+ 		$$ = makeStatementNode(FUNCTION, FUNCTION, $7,(Astnode *)NULL, "MAIN_FUNCTION");
+ 		$$->GST_entry = tmp;
+ 		LSTnode = NULL;
  }
  ;
 
 GDeclBlock : _DECL GdeclList _ENDDECL {
 
-		//print_GST(GSTroot);
 		$$ = $2;
 		printf("Global Declaration Done\n");
 
@@ -149,7 +173,7 @@ Gid :   _ID {
 		tmp = init_node(-1, FUNCT_VARIABLE, -1,  $1->varname);
 		tmp->PList = $3;
 		GSTroot = installID(GSTroot, -1, tmp);
-		$$ = makeFunctNode(-1, FUNCT_VARIABLE, $1->varname);
+		$$ = $1;
 		$$->GST_entry = tmp;
 		paramList = NULL;
 }
@@ -161,7 +185,7 @@ Gid :   _ID {
 
 FdefBlock : FdefBlock Fdef {
 
-			$$ = makeStatementNode(-1, FUNCTION, $1, $2, "FUNCTION");
+			LSTnode = NULL;
 }
 | 		    Fdef {
 			$$ = $1;
@@ -169,6 +193,8 @@ FdefBlock : FdefBlock Fdef {
 ;
 
  Fdef :  Type _ID'('ParamList')' '{'LdeclBlock Body'}' {
+
+ 			LSTnode = update_lst(LSTnode, GSTroot, $2);
 
  			tmp = Lookup(GSTroot, $2->varname);
  			if(!tmp)
@@ -183,9 +209,11 @@ FdefBlock : FdefBlock Fdef {
  			}
 
  			$8->type = $1->type;
- 			tmp->LST_entry = LSTroot;
-
- 			$$ = makeStatementNode($1->type, FUNCTION, $2, $8, "FUNCTION");
+ 			tmp->LST_entry = LSTnode;
+ 			LSTnode = NULL;
+ 			$$ = $8;
+ 			//print_funct_body($8);
+ 			//funct_codeGen(ft, $8);
  }
  ;
 ParamList : ParamList ',' Param {
@@ -221,7 +249,7 @@ Param : Type _ID {
 
 LdeclBlock : _DECL LdeclList _ENDDECL {
 
-			print_LST(LSTnode);
+			print_lst(LSTnode);
 			printf("Function Declaration\n");
 			$$ = $2;
 }
@@ -233,7 +261,6 @@ LdeclBlock : _DECL LdeclList _ENDDECL {
 
 LdeclList : LdeclList Ldecl {
 
-		$$ = makeFunctNode(-1, $1, $2, "FUNCT_DECL");
 }
 | 			Ldecl {
 
@@ -243,7 +270,7 @@ LdeclList : LdeclList Ldecl {
 
 Ldecl : Type IdList ';' {
 
-	$$ = LST_typechange(LSTnode, $2, $1->type);
+	$$ = lst_typechange(LSTnode, $2, $1->type);
 }
 ;
 
@@ -306,23 +333,19 @@ Type : _INT {
 
  Body : _BEGIN Slist Retstmt _END ';'{
 
- 		$$ = makeStatementNode(-1, STATEMENT, $1, $2, "STATEMENT");
-		printf("Parsing Done\n");
+ 		$$ = makeStatementNode(STATEMENT, STATEMENT, $2, $3, "STATEMENT");
+ 		printf("Body of the function parsed\n");
 }
 | _BEGIN Retstmt _END ';'{
 
 		$$ = $2;
- 		$$ = makeStatementNode(-1, STATEMENT,(Astnode *)NULL , $2, "STATEMENT");
-		printf("Parsing Done\n");
+ 		$$ = makeStatementNode(STATEMENT, STATEMENT,(Astnode *)NULL , $2, "STATEMENT");
+ 		printf("Body of the function parsed\n");
 }
 ;
 
 Retstmt : _RETURN Ret_Type ';'{
-	$$ = $1;
-}
-| _RETURN ';'{
-	$$ = $1;
-	$$->type = NONE;
+	$$ = $2;
 }
 ;
 Ret_Type : _ID {
@@ -388,11 +411,11 @@ Inputstmt: _READ '(' id ')'';'{
 	$3->GST_entry = tmp;
 	$3->type = tmp->type;
 	$$ = $3;
-	$$ = makeStatementNode(STATEMENT,READ,$3,(Astnode *)NULL,"Read");
+	$$ = makeStatementNode(READ,STATEMENT,$3,(Astnode *)NULL,"Read");
 }
 ;
 Outputstmt: _WRITE'('expr_str')'';'{
-	$$ = makeStatementNode(STATEMENT,WRITE,$3,(Astnode *)NULL, "Write");
+	$$ = makeStatementNode(WRITE,STATEMENT,$3,(Astnode *)NULL, "Write");
 }
 ;
 Assgstmt: id '=' expr_str ';'{
@@ -401,7 +424,8 @@ Assgstmt: id '=' expr_str ';'{
 		printf("Invalid operatinon b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,ASSIGNMENT,'=',$1,$3,"=");
+
+	$$ = makeExpressionNode(ASSIGNMENT,EXPRESSION,'=',$1,$3,"=");
 }
 ;
 
@@ -413,10 +437,10 @@ expr_str : expr {$$ = $1;}
 Ifstmt: _IF'('Boolstmt')' _THEN Slist _ELSE Slist _ENDIF ';'{
 		if($3->nodetype == BOOLEAN)
 		{
-			Astnode *if_node = makeStatementNode(STATEMENT,IF,$3,$6,"IF");
-			Astnode *else_node = makeStatementNode(STATEMENT,ELSE,$8,(Astnode *)NULL,"ELSE");
+			Astnode *if_node = makeStatementNode(IF,STATEMENT, $3,$6,"IF");
+			Astnode *else_node = makeStatementNode(ELSE,STATEMENT,$8,(Astnode *)NULL,"ELSE");
 
-			$$ = makeStatementNode(STATEMENT,IF_ELSE,if_node,else_node,"IF_ELSE");
+			$$ = makeStatementNode(IF_ELSE,STATEMENT,if_node,else_node,"IF_ELSE");
 		}
 		else 
 		{
@@ -427,8 +451,8 @@ Ifstmt: _IF'('Boolstmt')' _THEN Slist _ELSE Slist _ENDIF ';'{
 | _IF'('Boolstmt')' _THEN Slist  _ENDIF ';'{
 		if($3->nodetype == BOOLEAN)
 		{
-			Astnode * if_node = makeStatementNode(STATEMENT,IF,$3,$6,"IF");
-			$$ = makeStatementNode(STATEMENT,IF_ELSE,if_node,(Astnode *)NULL,"IF_ELSE");
+			Astnode * if_node = makeStatementNode(IF,STATEMENT,$3,$6,"IF");
+			$$ = makeStatementNode(IF_ELSE,STATEMENT,if_node,(Astnode *)NULL,"IF_ELSE");
 		}
 		else
 		{
@@ -444,7 +468,7 @@ Boolstmt:  expr _GT expr {
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeStatementNode(BOOLEAN,GT,$1,$3,"GT");
+	$$ = makeStatementNode(GT,BOOLEAN,$1,$3,"GT");
 	}
 	| expr _LT expr {
 		if($1->type != $3->type)
@@ -452,7 +476,7 @@ Boolstmt:  expr _GT expr {
 			printf("aaError Invalid operator b/w operands\n");
 			exit(1);
 		}
-		$$ = makeStatementNode(BOOLEAN,LT,$1,$3,"LT");
+		$$ = makeStatementNode(LT,BOOLEAN,$1,$3,"LT");
 	}
 	| expr _GE expr {
 		if($1->type != $3->type)
@@ -460,7 +484,7 @@ Boolstmt:  expr _GT expr {
 			printf("bbError Invalid operator b/w operands\n");
 			exit(1);
 		}
-		$$ = makeStatementNode(BOOLEAN,GE,$1,$3,"GE");
+		$$ = makeStatementNode(GE,BOOLEAN,$1,$3,"GE");
 	}
 	| expr _LE expr {
 		if($1->type != $3->type)
@@ -468,7 +492,7 @@ Boolstmt:  expr _GT expr {
 			printf("ccError Invalid operator b/w operands\n");
 			exit(1);
 		}
-		$$ = makeStatementNode(BOOLEAN,LE,$1,$3,"LE");
+		$$ = makeStatementNode(LE,BOOLEAN,$1,$3,"LE");
 	}
 	| expr _NE expr {
 		if($1->type != $3->type)
@@ -476,7 +500,7 @@ Boolstmt:  expr _GT expr {
 			printf("ddError Invalid operator b/w operands\n");
 			exit(1);
 		}
-		$$ = makeStatementNode(BOOLEAN,NE,$1,$3,"NE");
+		$$ = makeStatementNode(NE,BOOLEAN,$1,$3,"NE");
 	}
 	| expr _EQ expr {
 		if($1->type != $3->type)
@@ -484,7 +508,7 @@ Boolstmt:  expr _GT expr {
 			printf("eeError Invalid operator b/w operands\n");
 			exit(1);
 		}
-		$$ = makeStatementNode(BOOLEAN,EQ,$1,$3,"EQ");
+		$$ = makeStatementNode(EQ,BOOLEAN,$1,$3,"EQ");
 	}
 ;
 
@@ -492,7 +516,7 @@ Whilestmt : _WHILE'('Boolstmt')' _DO Slist _ENDWHILE ';'{
 
 	if($3->nodetype == BOOLEAN)
 	{
-		$$ = makeStatementNode(LOOP,WHILE,$3,$6,"WHILE");
+		$$ = makeStatementNode(WHILE,LOOP,$3,$6,"WHILE");
 	}
 	else
 	{
@@ -507,7 +531,7 @@ RepeatUntil : _REPEAT Slist  _UNTIL'('Boolstmt')'';'{
 	//printf("Hello\n");
 	if($5->nodetype == BOOLEAN)
 	{
-		$$ = makeStatementNode(LOOP,REPEAT_UNTIL,$2,$5,"REPEAT_UNTIL"); 
+		$$ = makeStatementNode(REPEAT_UNTIL,LOOP,$2,$5,"REPEAT_UNTIL"); 
 	}
 	else
 	{
@@ -520,7 +544,7 @@ Dowhile : _DO '{'Slist'}' _WHILE'('Boolstmt')'';'{
 
 	if($7->nodetype == BOOLEAN)
 	{
-		$$ = makeStatementNode(LOOP,DO_WHILE,$3,$7,"DO_WHILE"); 
+		$$ = makeStatementNode(DO_WHILE,LOOP,$3,$7,"DO_WHILE"); 
 	}
 	else
 	{
@@ -539,7 +563,7 @@ expr : expr _PLUS expr		{
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,PLUS,'+',$1,$3,"+"); 
+	$$ = makeExpressionNode(PLUS,EXPRESSION,'+',$1,$3,"+"); 
 	$$->type = $1->type;
 }
 | expr _MINUS expr 	{
@@ -548,7 +572,7 @@ expr : expr _PLUS expr		{
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,MINUS,'-',$1,$3,"-"); 
+	$$ = makeExpressionNode(MINUS,EXPRESSION,'-',$1,$3,"-"); 
 	$$->type = $1->type;
 }
 | expr _MUL expr{
@@ -557,7 +581,7 @@ expr : expr _PLUS expr		{
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,MUL,'*',$1,$3,"*"); 
+	$$ = makeExpressionNode(MUL,EXPRESSION,'*',$1,$3,"*"); 
 	$$->type = $1->type;
 }
 | expr _DIV expr{
@@ -566,7 +590,7 @@ expr : expr _PLUS expr		{
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,DIV,'/',$1,$3,"/"); 
+	$$ = makeExpressionNode(DIV,EXPRESSION,'/',$1,$3,"/"); 
 	$$->type = $1->type;
 }
 | expr _MOD expr{
@@ -575,7 +599,7 @@ expr : expr _PLUS expr		{
 		printf("Error Invalid operator b/w operands\n");
 		exit(1);
 	}
-	$$ = makeExpressionNode(EXPRESSION,MOD,'%',$1,$3,"%"); 
+	$$ = makeExpressionNode(MOD,EXPRESSION,'%',$1,$3,"%"); 
 	$$->type = $1->type;
 }
 | '(' expr ')'		{$$ = $2;}

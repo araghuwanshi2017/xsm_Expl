@@ -1,1 +1,9 @@
-decl int a, b, d, e, func(int c, int d, int e), abc(int c, int d, int e), def(int c, int d, int e), efg(int c, int d,int e); enddecl begin end;
+decl int a, b, d, e, func(int c, int d, int e), abc(int c, int d, int e), def(int c, int d, int e), efg(int c, int d,int e); enddecl
+
+int main() {
+decl 
+enddecl
+begin 
+return 5;
+end ;
+}

@@ -87,16 +87,29 @@ typedef struct Lsymbol {
 	int binding;
 	char *varname; 
 	struct Lsymbol *next;
+	struct Lsymbol *left;
+	struct Astnode *right;
 }Lsymbol; 
 
 // *****
 
 //Make a node of variables in the declaration section of the function to change the type of variables declared
-struct Lsymbol *makeFunctDeclNode(int, struct Lsymbol *, struct Lsymbol *, char *);
+//To initialize a new entry of the type of local_symbol_table
+struct Lsymbol *init_lstnode(char *);
+//Check whether the variable entry is present or not
+struct Lsymbol *lst_Lookup(struct Lsymbol * , char *);
+//To install a new lst_entry in the table
+struct Lsymbol *install_lstnode(struct Lsymbol *, struct Lsymbol *);
 //To assign the type to function's declared variable
-struct Lsymbol *LST_typechange(struct Lsymbol *, struct Lsymbol *, int);
-//To find the lst_entry in the Local_Symbol_Table
-struct Lsymbol *find_lst_entry(struct Lsymbol *, char *);
+struct Lsymbol *lst_typechange(struct Lsymbol *, struct Lsymbol *, int);
+//To add up the declared variables in the lst along with the arguments of the functions  
+struct Lsymbol *update_lst(struct Lsymbol *, struct Gsymbol *, struct Astnode *);
+
+
+struct Lsymbol *makeFunctDeclNode(int, struct Lsymbol *, struct Astnode *, char *);
+
+
+
 
 //Creates a node of paramter passing in a funtion
 struct Pmtr *init_pnode(int, char *);
@@ -134,7 +147,7 @@ struct Astnode* makeFunctNode(int, int, char *varname);
 // If any string is identified make a node of it
 struct Astnode *makeConstantStringLeafNode(int, int, char *);
 // If a number is identified make a node of it
-struct Astnode* makeConstantLeafNode(int, int, int);
+struct Astnode* makeConstantLeafNode(int, int, int, char *);
 // To change the type of a variable
 struct Astnode* AST_typechange(struct Gsymbol*, struct Astnode *, int);
 // Statements nodes like write,  read, if-else-if statements , while, do_while, repeat_until;   
@@ -189,7 +202,3 @@ void evaluator(struct Astnode *);
 void if_else_evaluator(struct Astnode *t);
 
 // *****
-
-
-
-

@@ -68,18 +68,19 @@ extern int yydebug;
     _WRITE = 278,
     _BEGIN = 279,
     _END = 280,
-    _IF = 281,
-    _THEN = 282,
-    _ELSE = 283,
-    _ENDIF = 284,
-    _WHILE = 285,
-    _DO = 286,
-    _ENDWHILE = 287,
-    _REPEAT = 288,
-    _UNTIL = 289,
-    _BREAK = 290,
-    _CONTINUE = 291,
-    _BREAKPOINT = 292
+    _RETURN = 281,
+    _IF = 282,
+    _THEN = 283,
+    _ELSE = 284,
+    _ENDIF = 285,
+    _WHILE = 286,
+    _DO = 287,
+    _ENDWHILE = 288,
+    _REPEAT = 289,
+    _UNTIL = 290,
+    _BREAK = 291,
+    _CONTINUE = 292,
+    _BREAKPOINT = 293
   };
 #endif
 /* Tokens.  */
@@ -106,30 +107,32 @@ extern int yydebug;
 #define _WRITE 278
 #define _BEGIN 279
 #define _END 280
-#define _IF 281
-#define _THEN 282
-#define _ELSE 283
-#define _ENDIF 284
-#define _WHILE 285
-#define _DO 286
-#define _ENDWHILE 287
-#define _REPEAT 288
-#define _UNTIL 289
-#define _BREAK 290
-#define _CONTINUE 291
-#define _BREAKPOINT 292
+#define _RETURN 281
+#define _IF 282
+#define _THEN 283
+#define _ELSE 284
+#define _ENDIF 285
+#define _WHILE 286
+#define _DO 287
+#define _ENDWHILE 288
+#define _REPEAT 289
+#define _UNTIL 290
+#define _BREAK 291
+#define _CONTINUE 292
+#define _BREAKPOINT 293
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 
 union YYSTYPE
 {
-#line 16 "astree.y" /* yacc.c:1909  */
+#line 17 "astree.y" /* yacc.c:1909  */
 
 	struct Astnode *node;	
-	struct Pmtr * param_node;
+	struct Pmtr *param_node;
+	struct Lsymbol *lst_node;
 
-#line 133 "y.tab.h" /* yacc.c:1909  */
+#line 136 "y.tab.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

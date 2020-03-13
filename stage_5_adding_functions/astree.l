@@ -16,18 +16,19 @@ do       {return _DO;}
 if    	 {return _IF;}
 int      {return _INT;}
 str      {return _STR;}
-end   	 {return _END;}
+end   	 {printf("End\n");return _END;}
 decl     {return _DECL; }
 read  	 {return _READ;}
 else  	 {return _ELSE;}
 then  	 {return _THEN;}
 main 	 {return _MAIN;}
-begin 	 {return _BEGIN;}
+begin 	 {printf("Begin\n");return _BEGIN;}
 write 	 {return _WRITE;}
 endif 	 {return _ENDIF;}
 while 	 {return _WHILE;}
 until    {return _UNTIL;}
 repeat   {return _REPEAT;}
+return   {return _RETURN;}
 enddecl  {return _ENDDECL;}
 endwhile {return _ENDWHILE;}
 break    {yylval.node = makeBCBPNode(BREAK,BREAK,yytext); return _BREAK;}
@@ -36,11 +37,11 @@ breakpoint {yylval.node = makeBCBPNode(BREAKPOINT,BREAKPOINT,yytext); return _BR
 
 {alpha}({alpha}|{digit})* {
 	
-	yylval.node = makeVariableLeafNode(VARIABLE,-1,yytext); return _ID;
+	yylval.node = makeVariableLeafNode(-1,VARIABLE,yytext); return _ID;
 }
 ([\"]({alpha}|{digit})*[\"]) {yylval.node = makeConstantStringLeafNode(STRING,CONSTANT,yytext);return _STRING;}
 
-{digit}* {number = atoi(yytext); yylval.node = makeConstantLeafNode(INTEGER, CONSTANT,number); return _NUM;}
+{digit}* {number = atoi(yytext); yylval.node = makeConstantLeafNode(INTEGER, CONSTANT,number, yytext); return _NUM;}
 ">"		 {return _GT;}
 "<"		 {return _LT;}
 ([<][=]) {return _LE;}

@@ -1,10 +1,29 @@
 // *** Declaring an array of keywords
-char * Keywords[20] = {"main", "decl", "enddecl", "begin", "end", "do", "while", "repeat", "until", "break", "continue", "breakpoint", "if", "else", "then", "endif", "endwhile", "int", "str","read", "write"};
+char * Keywords[21] = {"main", "decl", "enddecl", "begin", "end", "do", "while", "repeat", "until", "break", "continue", "breakpoint", "if", "else", "then", "endif", "endwhile", "int", "str","read", "write"};
 
 //**************************** Global_Declaration ******************************
 int LABEL = -1;
 int FLABEL = -1;
 int ADDR = 4096;
+
+int allocate(int size)
+{
+    int binding_addr = ADDR;
+    ADDR += size;
+    return binding_addr;
+}
+
+int getLabel()
+{
+    int a = ++LABEL;
+    return a;
+}
+
+int get_func_label()
+{
+    int a = ++FLABEL;
+    return a;
+}
 
 void print_type(struct Astnode *root)
 {
@@ -74,7 +93,7 @@ struct Astnode * init(struct Astnode *temp, int len)
     temp->nodetype = -1;
     temp->GST_entry = NULL;
 }
-struct Astnode* makeVariableLeafNode(int nodetype, int type, char *varname)
+struct Astnode* makeVariableLeafNode(int type, int nodetype, char *varname)
 {
     struct Astnode *temp = init(temp, strlen(varname));
 
@@ -85,11 +104,12 @@ struct Astnode* makeVariableLeafNode(int nodetype, int type, char *varname)
     return temp;
 }
 
-struct Astnode* makeConstantLeafNode(int type, int nodetype, int val){
+struct Astnode* makeConstantLeafNode(int type, int nodetype, int val, char *varname){
     struct Astnode *temp = init(temp, 0);
 
     temp->val = val;
     temp->type = type;
+    temp->varname = varname;
     temp->nodetype = nodetype;
 
     return temp;
@@ -105,7 +125,7 @@ struct Astnode* makeConstantStringLeafNode(int type, int nodetype, char *varname
     return temp;
 }
 
-struct Astnode* makeStatementNode(int nodetype, int type,struct Astnode *l,struct Astnode *r, char *node_name){
+struct Astnode* makeStatementNode(int type, int nodetype, struct Astnode *l,struct Astnode *r, char *node_name){
     struct Astnode *temp = init(temp, strlen(node_name));
 
     temp->left = l;
@@ -155,22 +175,22 @@ struct Astnode *makeBCBPNode(int type, int nodetype, char *varname)
     return temp;
 }
 
-struct Astnode *makeFunctNode(int type, int nodetype, char *varname)
-{
-    struct Astnode *temp = init(temp, strlen(varname));
+// struct Lsymbol *makeFunctNode(int type, int nodetype, char *varname)
+// {
+//     struct Astnode *temp = init(temp, strlen(varname));
 
-    temp->type = type;
-    temp->varname = varname;
-    temp->nodetype = nodetype;
+//     temp->type = type;
+//     temp->varname = varname;
+//     temp->nodetype = nodetype;
     
-    return temp;   
-}
+//     return temp;   
+// }
 
 
 // *********************** Checking for Reserved Keywords **********************
 int chk_Reserved(char *keywords[], char *varname)
 {
-    for(int i = 0;i < 20;i++)
+    for(int i = 0;i < 21;i++)
     {
         if(keywords[i] == varname)
             return 1;
@@ -273,7 +293,7 @@ struct Gsymbol* init_node(int type, int nodetype, int size, char * varname)
     if(nodetype != FUNCT_VARIABLE)
         new_node->binding = allocate(size);
     if(nodetype == FUNCT_VARIABLE)
-        new_node->flabel = getFunclabel();
+        new_node->flabel = get_func_label();
 
     new_node->next = NULL;
     return new_node;
@@ -357,15 +377,15 @@ struct Pmtr *install_Pnode(struct Pmtr * head, struct Pmtr *new_node)
 {
     struct Pmtr *curr = head;
 
-    if(!chk_Reserved(Keywords, new_node->varname))
+    if(chk_Reserved(Keywords, new_node->varname))
     {
-        printf("error: '%s' is a reserverd keyword\n");
+        printf("error: '%s' is a reserverd keyword\n",new_node->varname);
         exit(1);
     }
     else
     {
         if(curr == NULL)
-            root = new_node;
+            head = new_node;
 
         else
         {
@@ -383,6 +403,17 @@ struct Pmtr *install_Pnode(struct Pmtr * head, struct Pmtr *new_node)
 // *****
 
 // ********************************* Local_Symbol_Table Nodes ****************************** 
+void print_lst(struct Lsymbol *lst_head)
+{
+    struct Lsymbol *curr = lst_head;
+    
+    while(curr)
+    {
+        printf("%d %s\n",curr->type, curr->varname);
+        curr = curr->next;
+    } 
+    return ;  
+}
 struct Lsymbol *init_lstnode(char *varname)
 {
     struct Lsymbol *curr = (Lsymbol *)malloc(sizeof(Lsymbol));
@@ -396,11 +427,11 @@ struct Lsymbol *init_lstnode(char *varname)
     return curr;
 }
 
-struct Lsymbol *lst_Lookup(struct Lsymbol * head, char *varname)
+struct Lsymbol *lst_lookup(struct Lsymbol * head, char *varname)
 {
     struct Lsymbol *curr = head;
 
-    while(curr != NULL)
+    while(curr)
     {
         if(!strcmp(curr->varname, varname))
             return curr;
@@ -412,11 +443,11 @@ struct Lsymbol *lst_Lookup(struct Lsymbol * head, char *varname)
 
 struct Lsymbol *install_lstnode(struct Lsymbol *head, struct Lsymbol *new_node)
 {
-    struct Lsymbol *curr = lst_Lookup(head, new_node->varname);
+    struct Lsymbol *curr = lst_lookup(head, new_node->varname);
 
     if(!chk_Reserved(Keywords, new_node->varname))
     {
-        printf("error: '%s' is a reserverd keyword\n");
+        printf("error: '%s' is a reserved keyword\n",new_node->varname);
         exit(1);
     }
     else
@@ -433,35 +464,74 @@ struct Lsymbol *install_lstnode(struct Lsymbol *head, struct Lsymbol *new_node)
     }
     return head;
 }
-
-struct Lsymbol *find_lst_entry(struct Lsymbol *head, char *varname)
-{
-    struct Lsymbol *curr = head;
-
-    while(curr)
-    {
-        if(!strcmp(curr->varname, varname))
-            return curr;
-        curr = curr->next;
-    }
-
-    return curr;
-}
-
-struct Lsymbol *LST_typechange(struct Lsymbol * head, struct Lsymbol * root, int type)
+struct Lsymbol *lst_typechange(struct Lsymbol * head, struct Lsymbol * root, int type)
 {
     struct Lsymbol *curr;
     if(root)
     {
         if(!root->left && !root->right)
         {
-            curr = find_lst_entry(head, root->varname);
+            curr = lst_lookup(head, root->varname);
+            if(!curr)
+            {
+                printf("Varaible undeclared in the function\n");
+                exit(1);
+            }
             curr->type = type;
             root->type = type;
         }
     }
     return root;
 }
+struct Lsymbol *update_lst(struct Lsymbol *lst_head, struct Gsymbol *gst_head, struct Astnode *var_node)
+{
+    char *varname = var_node->varname;
+    struct Gsymbol *gst_curr = gst_head; 
+    struct Lsymbol *lst_curr;
+
+    while(gst_curr)
+    {
+        if(!strcmp(gst_curr->varname, varname))
+            break;
+        gst_curr = gst_curr->next;
+    }
+
+    if(gst_curr)
+    {
+        struct Pmtr *gst_curr_pmtr = gst_curr->PList;
+        while(gst_curr_pmtr)
+        {
+            lst_curr = init_lstnode(gst_curr_pmtr->varname);
+
+            if(!lst_lookup(lst_head, gst_curr_pmtr->varname)){
+                printf("error : '%s' redeclared as different kind of symbol\n",gst_curr_pmtr->varname);
+                exit(1);
+            }
+
+            lst_head = install_lstnode(lst_head, lst_curr);
+
+            gst_curr_pmtr = gst_curr_pmtr->next;
+        }
+    }
+    else
+    {
+        printf("Function undeclared\n");
+        exit(1);
+    }
+
+    return lst_head;
+}
+
+struct Lsymbol *makeFunctDeclNode(int type, struct Lsymbol *l, struct Astnode *r, char * varname)
+{
+
+
+    struct Lsymbol *curr = init_lstnode(varname);
+
+    curr->left = l;
+    curr->right = r;
+}
+
 
 // *****
 
@@ -537,26 +607,6 @@ reg_idx freeReg()
         printf("Invalid Register\n");
         return -1;
     }
-}
-
-
-int allocate(int size)
-{
-    int binding_addr = ADDR;
-    ADDR += size;
-    return binding_addr;
-}
-
-int getLabel()
-{
-    int a = ++LABEL;
-    return a;
-}
-
-int getFunclabel()
-{
-    int a = ++FLABEL;
-    return a;
 }
 
 int get_Address(FILE *ft,struct Astnode * t)
